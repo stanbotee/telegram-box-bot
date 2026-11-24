@@ -139,6 +139,33 @@ async function main() {
   );
   console.log('✓ 收藏切换与资料卡四种订单计数通过');
 
+  // 9. 重复支付 / 重复发货防护
+  db.addStockItems(product.id, ['buyer4@example.com:passDDD']);
+  const order6 = db.createOrder(buyer.id, product.id, product.price);
+  const paid6 = payWithWallet(db, order6, config);
+  assert.strictEqual(paid6.ok, true, '首次钱包支付应成功');
+  const balanceAfterFirstPay = db.getUser(buyer.id).balance;
+  const paid6Again = payWithWallet(db, order6, config);
+  assert.strictEqual(paid6Again.ok, false, '重复钱包支付应被拒绝');
+  assert.strictEqual(paid6Again.reason, 'not_pending');
+  assert.strictEqual(
+    db.getUser(buyer.id).balance,
+    balanceAfterFirstPay,
+    '重复支付不应二次扣款'
+  );
+  const ship6 = await deliverOrder(db, fakeBot, db.getOrder(order6.id), config);
+  assert.strictEqual(ship6.ok, true, '首次发货应成功');
+  const spentAfterFirstShip = db.getUser(buyer.id).total_spent;
+  const ship6Again = await deliverOrder(db, fakeBot, db.getOrder(order6.id), config);
+  assert.strictEqual(ship6Again.ok, false, '重复发货应被拒绝');
+  assert.strictEqual(ship6Again.reason, 'not_paid');
+  assert.strictEqual(
+    db.getUser(buyer.id).total_spent,
+    spentAfterFirstShip,
+    '重复发货不应二次记消费'
+  );
+  console.log('✓ 重复支付 / 重复发货防护通过');
+
   db.close();
   console.log('\n全部冒烟测试通过 ✅');
 }

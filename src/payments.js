@@ -32,7 +32,12 @@ function starsInstructions(lang) {
 }
 
 // 钱包余额支付订单：扣余额、记流水，订单直接进「已确认」等发货。
+// 状态校验：只接受待付款订单，重复点击不会二次扣款。
 function payWithWallet(db, order, config) {
+  const fresh = db.getOrder(order.id);
+  if (!fresh || fresh.status !== 'pending_payment') {
+    return { ok: false, reason: 'not_pending' };
+  }
   const user = db.getUser(order.user_id);
   if (!user || user.balance < order.total) {
     return { ok: false, reason: 'insufficient' };
@@ -46,8 +51,13 @@ function payWithWallet(db, order, config) {
 
 // 管理员确认后发货：取一条未用库存发给用户，发完减库存；
 // 同时累计用户消费，并给推荐人记返佣（比例见 config.referralRate，占位）。
-// 返回 { ok: true, item } 或 { ok: false, reason: 'out_of_stock' }。
+// 状态校验：只发「已确认」订单，重复点击不会二次发货/二次记消费/二次返佣。
+// 校验与写库都在同一个同步段里完成，单进程内不存在竞态窗口。
 async function deliverOrder(db, bot, order, config = {}) {
+  const fresh = db.getOrder(order.id);
+  if (!fresh || fresh.status !== 'paid') {
+    return { ok: false, reason: 'not_paid' };
+  }
   const item = db.takeStockItem(order.product_id);
   if (!item) return { ok: false, reason: 'out_of_stock' };
 

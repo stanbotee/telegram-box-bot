@@ -190,10 +190,12 @@ function registerUserHandlers(bot, deps) {
     if (!result.ok) {
       const user = db.getUser(ctx.from.id);
       await ctx.answerCbQuery(
-        t(lang, 'walletInsufficient', {
-          balance: fmtUsd(user.balance || 0),
-          total: fmtUsd(order.total),
-        }),
+        result.reason === 'not_pending'
+          ? t(lang, 'orderNotPending', { id: order.id })
+          : t(lang, 'walletInsufficient', {
+              balance: fmtUsd(user.balance || 0),
+              total: fmtUsd(order.total),
+            }),
         { show_alert: true }
       );
       return;
@@ -213,6 +215,12 @@ function registerUserHandlers(bot, deps) {
     const order = db.getOrder(Number(ctx.match[1]));
     await ctx.answerCbQuery();
     if (!order || order.user_id !== ctx.from.id) return;
+    if (order.status !== 'pending_payment') {
+      await ctx.answerCbQuery(t(lang, 'orderNotPending', { id: order.id }), {
+        show_alert: true,
+      });
+      return;
+    }
     db.setOrderPaymentMethod(order.id, 'usdt');
     ctx.session.flow = { type: 'await_txid', orderId: order.id };
     await safeEdit(

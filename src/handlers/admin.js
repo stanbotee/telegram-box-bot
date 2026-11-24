@@ -223,12 +223,13 @@ function registerAdminHandlers(bot, deps) {
   });
 
   // 发货：paid → delivered（自动取库存、累计消费、记返佣）
+  // 只发已确认订单：确认收款与发货是分开的两步，未确认的订单不能直接发货
   bot.action(/^admin:order:ship:(\d+)$/, async (ctx) => {
     if (!guard(ctx, config)) return;
     const order = db.getOrder(Number(ctx.match[1]));
     await ctx.answerCbQuery();
-    if (!order || (order.status !== 'paid' && order.status !== 'awaiting_confirm')) {
-      await ctx.reply('该订单当前不能发货。');
+    if (!order || order.status !== 'paid') {
+      await ctx.reply('该订单当前不能发货（请先确认收款）。');
       return;
     }
     const result = await deliverOrder(db, bot, order, config);
