@@ -60,6 +60,9 @@ public class StoreDb implements AutoCloseable {
             st.executeUpdate("CREATE TABLE IF NOT EXISTS referrals ("
                     + "id INTEGER PRIMARY KEY AUTOINCREMENT, referrer_id INTEGER, "
                     + "referred_id INTEGER, order_id INTEGER, commission REAL, created_at TEXT)");
+            st.executeUpdate("CREATE TABLE IF NOT EXISTS favorites ("
+                    + "user_id INTEGER, product_id INTEGER, created_at TEXT, "
+                    + "PRIMARY KEY (user_id, product_id))");
         }
         seedProducts();
     }
@@ -277,6 +280,25 @@ public class StoreDb implements AutoCloseable {
         }
     }
 
+    public synchronized StockItem getStockItem(long stockItemId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT * FROM stock_items WHERE id = ?")) {
+            ps.setLong(1, stockItemId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+                return new StockItem(
+                        rs.getLong("id"),
+                        rs.getLong("product_id"),
+                        rs.getString("content"),
+                        rs.getInt("used") == 1,
+                        rs.getObject("used_by_order_id") == null ? null : rs.getLong("used_by_order_id"),
+                        rs.getString("created_at"));
+            }
+        }
+    }
+
     public synchronized int availableStockCount(long productId) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT COUNT(*) FROM stock_items WHERE product_id = ? AND used = 0")) {
@@ -431,6 +453,40 @@ public class StoreDb implements AutoCloseable {
         }
     }
 
+    /** 设置订单付款方式（下单时先占位，付款选择时改）。 */
+    public synchronized void setOrderPayment(long orderId, String paymentMethod) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE orders SET payment_method = ?, updated_at = ? WHERE id = ?")) {
+            ps.setString(1, paymentMethod);
+            ps.setString(2, now());
+            ps.setLong(3, orderId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** 设置订单付款凭证（USDT 转账的 TxID）。 */
+    public synchronized void setOrderPaymentRef(long orderId, String paymentRef) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE orders SET payment_ref = ?, updated_at = ? WHERE id = ?")) {
+            ps.setString(1, paymentRef);
+            ps.setString(2, now());
+            ps.setLong(3, orderId);
+            ps.executeUpdate();
+        }
+    }
+
+    /** 全部用户 ID（广播用）。 */
+    public synchronized List<Long> listAllUserIds() throws SQLException {
+        List<Long> out = new ArrayList<>();
+        try (Statement st = conn.createStatement();
+             ResultSet rs = st.executeQuery("SELECT id FROM users ORDER BY id")) {
+            while (rs.next()) {
+                out.add(rs.getLong(1));
+            }
+        }
+        return out;
+    }
+
     public synchronized double totalRevenue() throws SQLException {
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
@@ -555,6 +611,64 @@ public class StoreDb implements AutoCloseable {
                 return rs.next() ? rs.getDouble(1) : 0;
             }
         }
+    }
+
+    // ---------------- 收藏 ----------------
+
+    /** 切换收藏：已收藏则取消，返回收藏后的状态（true=已收藏）。 */
+    public synchronized boolean toggleFavorite(long userId, long productId) throws SQLException {
+        boolean exists;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT 1 FROM favorites WHERE user_id = ? AND product_id = ?")) {
+            ps.setLong(1, userId);
+            ps.setLong(2, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                exists = rs.next();
+            }
+        }
+        if (exists) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM favorites WHERE user_id = ? AND product_id = ?")) {
+                ps.setLong(1, userId);
+                ps.setLong(2, productId);
+                ps.executeUpdate();
+            }
+            return false;
+        }
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT INTO favorites (user_id, product_id, created_at) VALUES (?, ?, ?)")) {
+            ps.setLong(1, userId);
+            ps.setLong(2, productId);
+            ps.setString(3, now());
+            ps.executeUpdate();
+        }
+        return true;
+    }
+
+    public synchronized boolean isFavorite(long userId, long productId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT 1 FROM favorites WHERE user_id = ? AND product_id = ?")) {
+            ps.setLong(1, userId);
+            ps.setLong(2, productId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    public synchronized List<Product> listFavorites(long userId) throws SQLException {
+        List<Product> out = new ArrayList<>();
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT p.* FROM products p JOIN favorites f ON f.product_id = p.id "
+                        + "WHERE f.user_id = ? AND p.active = 1 ORDER BY f.created_at DESC")) {
+            ps.setLong(1, userId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(mapProduct(rs));
+                }
+            }
+        }
+        return out;
     }
 
     // ---------------- 公告 ----------------
