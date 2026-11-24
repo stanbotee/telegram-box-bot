@@ -434,18 +434,34 @@ async function handleAdminTextFlow(ctx, deps) {
     const order = db.getOrder(flow.orderId);
     ctx.session.flow = null;
     if (!order) return true;
+    // 钱包支付的已确认订单被拒：退回余额并记流水（USDT 人工转账的退款由管理员线下处理）
+    let refunded = false;
+    if (order.payment_method === 'wallet' && order.status === 'paid') {
+      db.addBalance(order.user_id, order.total);
+      db.addTransaction(
+        order.user_id,
+        'refund',
+        order.total,
+        config.walletCurrency,
+        `refund order #${order.id}`
+      );
+      refunded = true;
+    }
     db.updateOrderStatus(order.id, 'rejected');
     const user = db.getUser(order.user_id);
     const lang = (user && user.language) || 'zh';
     try {
       await bot.telegram.sendMessage(
         order.user_id,
-        t(lang, 'orderRejected', { id: order.id, reason: text })
+        t(lang, 'orderRejected', { id: order.id, reason: text }) +
+          (refunded ? `\n${t(lang, 'refundDone', { total: fmtUsd(order.total) })}` : '')
       );
     } catch (e) {
       console.error(`拒绝通知发送失败 order=${order.id}:`, e.message);
     }
-    await ctx.reply(`❌ 订单 #${order.id} 已拒绝，用户已收到通知。`);
+    await ctx.reply(
+      `❌ 订单 #${order.id} 已拒绝，用户已收到通知。${refunded ? `已退回钱包余额 ${fmtUsd(order.total)}。` : ''}`
+    );
     return true;
   }
 

@@ -64,6 +64,7 @@ const STRINGS = {
       '🎉 订单 #{id} 已发货！\n\n商品：{product}\n发货内容：\n`{content}`\n\n请妥善保管，不要泄露给他人。',
     orderRejected:
       '❌ 订单 #{id} 未通过确认：{reason}\n请联系客服处理。',
+    refundDone: '💰 已退回钱包余额 {total}。',
     statusPendingPayment: '待处理',
     statusAwaitingConfirm: '处理中',
     statusPaid: '已确认',
@@ -176,6 +177,7 @@ const STRINGS = {
       '🎉 Order #{id} delivered!\n\nProduct: {product}\nDelivery:\n`{content}`\n\nKeep it safe and do not share it.',
     orderRejected:
       '❌ Order #{id} was not confirmed: {reason}\nPlease contact support.',
+    refundDone: '💰 {total} has been refunded to your wallet balance.',
     statusPendingPayment: 'Pending',
     statusAwaitingConfirm: 'Processing',
     statusPaid: 'Confirmed',

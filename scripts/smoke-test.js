@@ -8,6 +8,7 @@ const assert = require('assert');
 const { StoreDB } = require('../src/db');
 const { seedIfEmpty, seedAll, SEED_PRODUCTS } = require('../src/seed');
 const { deliverOrder, payWithWallet } = require('../src/payments');
+const { handleAdminTextFlow } = require('../src/handlers/admin');
 const { levelFor, nextLevel, fmtMoney, fmtUsd } = require('../src/levels');
 
 async function main() {
@@ -170,6 +171,40 @@ async function main() {
     '重复发货不应二次记消费'
   );
   console.log('✓ 重复支付 / 重复发货防护通过');
+
+  // 10. 拒绝钱包已付款订单应退款
+  db.addBalance(buyer.id, 50); // 补余额以便再次钱包支付
+  db.addStockItems(product.id, ['buyer5@example.com:passEEE']);
+  const order7 = db.createOrder(buyer.id, product.id, product.price);
+  assert.strictEqual(payWithWallet(db, order7, config).ok, true);
+  const balBeforeReject = db.getUser(buyer.id).balance;
+  const adminReplies = [];
+  const fakeCtx = {
+    from: { id: 999, username: 'admin' },
+    message: { text: '测试拒绝' },
+    session: { flow: { type: 'admin_reject_order', orderId: order7.id } },
+    reply: async (text) => {
+      adminReplies.push(text);
+    },
+  };
+  const handled = await handleAdminTextFlow(fakeCtx, {
+    db,
+    config: { ...config, adminIds: [999] },
+    bot: fakeBot,
+  });
+  assert.strictEqual(handled, true, '管理员拒绝流程应消费这条消息');
+  assert.strictEqual(db.getOrder(order7.id).status, 'rejected');
+  assert.strictEqual(
+    db.getUser(buyer.id).balance,
+    balBeforeReject + product.price,
+    '钱包已付款订单被拒应退回余额'
+  );
+  const refundTxns = db
+    .listTransactions(buyer.id, 20)
+    .filter((x) => x.type === 'refund');
+  assert.strictEqual(refundTxns.length, 1, '应有 1 条退款流水');
+  assert.ok(adminReplies[0].includes('已退回钱包余额'), '管理员应看到退款提示');
+  console.log('✓ 拒绝钱包已付款订单退款通过');
 
   db.close();
   console.log('\n全部冒烟测试通过 ✅');
