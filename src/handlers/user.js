@@ -133,8 +133,10 @@ function registerUserHandlers(bot, deps) {
   bot.action(/^fav:(\d+)$/, async (ctx) => {
     const lang = getLang(ctx, db);
     const product = db.getProduct(Number(ctx.match[1]));
-    await ctx.answerCbQuery();
-    if (!product) return;
+    if (!product) {
+      await ctx.answerCbQuery();
+      return;
+    }
     const added = db.toggleFavorite(ctx.from.id, product.id);
     await ctx.answerCbQuery(
       added ? t(lang, 'favAdded', { name: product.name }) : t(lang, 'favRemoved', { name: product.name })
