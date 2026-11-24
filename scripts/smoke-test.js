@@ -53,6 +53,9 @@ async function main() {
   db.setOrderPaymentMethod(order.id, 'usdt');
   db.setOrderPaymentRef(order.id, 'txid-test-123');
   assert.strictEqual(db.getOrder(order.id).status, 'awaiting_confirm');
+  // 管理员确认收款（处理中 → 已确认），再发货
+  db.updateOrderStatus(order.id, 'paid');
+  assert.strictEqual(db.getOrder(order.id).status, 'paid');
 
   const sent = [];
   const fakeBot = {
@@ -83,9 +86,11 @@ async function main() {
   // 6. 库存耗尽时发货应失败
   const order2 = db.createOrder(user.id, product.id, product.price);
   db.setOrderPaymentRef(order2.id, 'txid-test-456');
+  db.updateOrderStatus(order2.id, 'paid'); // 管理员确认收款
   await deliverOrder(db, fakeBot, db.getOrder(order2.id), config); // 发掉最后 1 条
   const order3 = db.createOrder(user.id, product.id, product.price);
   db.setOrderPaymentRef(order3.id, 'txid-test-789');
+  db.updateOrderStatus(order3.id, 'paid'); // 管理员确认收款
   const empty = await deliverOrder(db, fakeBot, db.getOrder(order3.id), config);
   assert.strictEqual(empty.ok, false, '库存为 0 时发货应失败');
   assert.strictEqual(empty.reason, 'out_of_stock');
