@@ -1,6 +1,13 @@
+target/
+*.class
+*.jar
+*.war
+*.ear
 node_modules/
 .env
 data/
 *.db
 *.log
 .DS_Store
+.idea/
+*.iml
