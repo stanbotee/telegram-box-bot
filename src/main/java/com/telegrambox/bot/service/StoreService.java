@@ -42,6 +42,7 @@ public class StoreService {
         if (!db.updateOrderStatus(orderId, Order.PENDING_PAYMENT, Order.PAID)) {
             return false; // 并发下已被别人改过状态
         }
+        db.setOrderPayment(orderId, "wallet");
         db.changeBalance(order.userId(), -order.total());
         db.addSpent(order.userId(), order.total());
         db.addWalletTx(order.userId(), "purchase", -order.total(), "order:" + orderId);

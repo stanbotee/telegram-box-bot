@@ -222,7 +222,7 @@ public class StoreDb implements AutoCloseable {
         List<String> cats = new ArrayList<>();
         try (Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(
-                     "SELECT DISTINCT category FROM products WHERE active = 1 ORDER BY MIN(sort_order)")) {
+                     "SELECT category FROM products WHERE active = 1 GROUP BY category ORDER BY MIN(sort_order)")) {
             while (rs.next()) {
                 cats.add(rs.getString(1));
             }
