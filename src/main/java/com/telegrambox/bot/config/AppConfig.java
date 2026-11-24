@@ -70,7 +70,8 @@ public final class AppConfig {
                 env("BOT_TOKEN", ""),
                 parseAdminIds(env("ADMIN_IDS", "")),
                 env("BOT_MODE", "webhook"),
-                env("WEBHOOK_URL", "").replaceAll("/$", ""),
+                // Render 上可不填 WEBHOOK_URL，自动用平台注入的 RENDER_EXTERNAL_URL
+                firstNonBlank(env("WEBHOOK_URL", ""), env("RENDER_EXTERNAL_URL", "")).replaceAll("/$", ""),
                 env("WEBHOOK_PATH", "/telegram-webhook"),
                 parseInt(env("PORT", "3000"), 3000),
                 env("USDT_TRC20_ADDRESS", ""),
@@ -85,8 +86,22 @@ public final class AppConfig {
                 env("DEFAULT_LANG", "zh"));
     }
 
+    /** 测试专用：默认配置，只改端口与 bot 用户名。 */
+    public static AppConfig testConfig(int port, String botUsername) {
+        AppConfig c = load();
+        AppConfig out = new AppConfig(c.botToken, c.adminIds, c.botMode, c.webhookUrl,
+                c.webhookPath, port, c.usdtAddress, c.supportUsername, botUsername,
+                c.walletCurrency, c.referralRate, c.levelSilverMin, c.levelGoldMin,
+                c.levelPlatinumMin, c.dbPath, c.defaultLang);
+        return out;
+    }
+
     public boolean isAdmin(long userId) {
         return adminIds.contains(userId);
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return a != null && !a.isBlank() ? a : b;
     }
 
     private static String env(String name, String def) {

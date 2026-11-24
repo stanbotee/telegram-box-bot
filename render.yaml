@@ -1,0 +1,29 @@
+# Render 部署配置：免费档 Docker 部署
+# 在 Render 控制台点 New -> Blueprint，选本仓库即可
+services:
+  - type: web
+    name: telegram-box-bot
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    # 免费档限制：512 MB、750 实例小时/月、空闲约 15 分钟后休眠、
+    # 无持久磁盘（SQLite 数据在重启/重新部署后会丢失，仅适合测试）
+    healthCheckPath: /healthz
+    envVars:
+      - key: BOT_TOKEN
+        sync: false # 在 Render 控制台填 BotFather 的 token
+      - key: ADMIN_IDS
+        sync: false # 管理员 Telegram 数字 ID，多个用逗号分隔
+      - key: BOT_MODE
+        value: webhook
+      # WEBHOOK_URL 不填：程序自动用 Render 注入的 RENDER_EXTERNAL_URL
+      - key: USDT_TRC20_ADDRESS
+        sync: false # 收款 USDT-TRC20 地址（占位，等用户确认后填）
+      - key: SUPPORT_USERNAME
+        sync: false # 客服 Telegram 用户名（不带 @）
+      - key: BOT_USERNAME
+        sync: false # bot 用户名（不带 @）；不填则启动时用 getMe() 自动补齐
+      - key: REFERRAL_RATE
+        value: "0.05"
+      - key: DB_PATH
+        value: ./data/store.db

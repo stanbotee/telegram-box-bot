@@ -72,9 +72,15 @@ public class BotApp {
         }
         Server server = buildServer(config, db, bot);
         server.start();
-        SetWebhook setWebhook = new SetWebhook();
-        setWebhook.setUrl(config.webhookUrl + config.webhookPath);
-        bot.execute(setWebhook);
+        try {
+            SetWebhook setWebhook = new SetWebhook();
+            setWebhook.setUrl(config.webhookUrl + config.webhookPath);
+            bot.execute(setWebhook);
+        } catch (Exception e) {
+            System.err.println("设置 Telegram webhook 失败（" + config.webhookUrl + config.webhookPath
+                    + "），请检查 BOT_TOKEN 与 WEBHOOK_URL 是否正确：" + e.getMessage());
+            System.exit(1);
+        }
         System.out.println("Bot 已启动（webhook），监听端口 " + config.port
                 + "，webhook=" + config.webhookUrl + config.webhookPath);
         server.join();

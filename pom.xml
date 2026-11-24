@@ -85,7 +85,7 @@
                     </descriptorRefs>
                     <archive>
                         <manifest>
-                            <mainClass>com.telegrambox.bot.Main</mainClass>
+                            <mainClass>com.telegrambox.bot.BotApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
