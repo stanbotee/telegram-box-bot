@@ -99,6 +99,23 @@ function paymentKb(order, canPayWithWallet, lang) {
   return Markup.inlineKeyboard(rows);
 }
 
+function userOrdersKb(orders, lang) {
+  const rows = orders.map((o) => [
+    Markup.button.callback(`#${o.id} ${o.product_name}`, `order:${o.id}`),
+  ]);
+  rows.push([Markup.button.callback('⬅️ ' + t(lang, 'menu'), 'menu')]);
+  return Markup.inlineKeyboard(rows);
+}
+
+function userOrderDetailKb(order, lang) {
+  const rows = [];
+  if (order.status === 'pending_payment') {
+    rows.push([Markup.button.callback(t(lang, 'cancelOrder'), `cancel:${order.id}`)]);
+  }
+  rows.push([Markup.button.callback('⬅️ ' + t(lang, 'myOrders'), 'orders')]);
+  return Markup.inlineKeyboard(rows);
+}
+
 function walletKb(lang) {
   return Markup.inlineKeyboard([
     [Markup.button.callback(t(lang, 'topup'), 'wallet:topup')],
@@ -260,6 +277,8 @@ module.exports = {
   productsKb,
   productDetailKb,
   paymentKb,
+  userOrdersKb,
+  userOrderDetailKb,
   walletKb,
   languageKb,
   apiKb,

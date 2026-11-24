@@ -48,6 +48,10 @@ const STRINGS = {
       '❌ 钱包余额不足（余额 {balance}，需付 {total}），请先充值。',
     orderCreated: '订单 #{id} 已创建：{product}，应付 {total}。',
     orderNotPending: '订单 #{id} 已不是待付款状态，请在「我的订单」里查看。',
+    cancelOrder: '❌ 取消订单',
+    orderCancelled: '✅ 订单 #{id} 已取消。',
+    orderDetailTitle: '🧾 订单 #{id}',
+    orderStatus: '状态',
     orderConfirmed:
       '✅ 订单 #{id} 已确认收款，正在安排发货，发货后会通知你。',
     noOrders: '你还没有订单。',
@@ -161,6 +165,10 @@ const STRINGS = {
       '❌ Insufficient wallet balance ({balance}, need {total}). Please top up first.',
     orderCreated: 'Order #{id} created: {product}, total {total}.',
     orderNotPending: 'Order #{id} is no longer pending payment. Check it in My orders.',
+    cancelOrder: '❌ Cancel order',
+    orderCancelled: '✅ Order #{id} has been cancelled.',
+    orderDetailTitle: '🧾 Order #{id}',
+    orderStatus: 'Status',
     orderConfirmed:
       '✅ Order #{id} payment confirmed. Delivery is being arranged.',
     noOrders: 'You have no orders yet.',

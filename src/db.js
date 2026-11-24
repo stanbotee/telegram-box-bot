@@ -309,6 +309,10 @@ class StoreDB {
       .run(orderId, stockItemId);
   }
 
+  getStockItem(id) {
+    return this.db.prepare('SELECT * FROM stock_items WHERE id = ?').get(id);
+  }
+
   // ---------- orders ----------
   createOrder(userId, productId, total) {
     const info = this.db

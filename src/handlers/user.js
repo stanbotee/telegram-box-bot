@@ -247,7 +247,61 @@ function registerUserHandlers(bot, deps) {
       (o) =>
         `#${o.id} ${o.product_name} — ${fmtPrice(o.total)} — ${statusLabel(lang, o.status)}`
     );
-    await safeEdit(ctx, `${t(lang, 'yourOrders')}\n\n${lines.join('\n')}`, kb.backToMenu(lang));
+    await safeEdit(
+      ctx,
+      `${t(lang, 'yourOrders')}\n\n${lines.join('\n')}`,
+      kb.userOrdersKb(orders, lang)
+    );
+  });
+
+  // 订单详情：点一条订单查看付款方式、TxID、发货内容（已发货时可随时找回）
+  bot.action(/^order:(\d+)$/, async (ctx) => {
+    const lang = getLang(ctx, db);
+    const order = db.getOrderDetail(Number(ctx.match[1]));
+    await ctx.answerCbQuery();
+    if (!order || order.user_id !== ctx.from.id) return;
+    const lines = [
+      t(lang, 'orderDetailTitle', { id: order.id }),
+      `📦 ${order.product_name}${order.product_duration ? `（${order.product_duration}）` : ''}`,
+      t(lang, 'price', { p: fmtPrice(order.total) }),
+      `${t(lang, 'orderStatus')}: ${statusLabel(lang, order.status)}`,
+      `付款方式：${order.payment_method || '-'}`,
+      `付款凭证：${order.payment_ref || '-'}`,
+    ];
+    if (order.status === 'delivered' && order.stock_item_id) {
+      const item = db.getStockItem(order.stock_item_id);
+      if (item) lines.push(`\n发货内容：\n\`${item.content}\``);
+    }
+    await safeEdit(ctx, lines.join('\n'), {
+      parse_mode: 'Markdown',
+      ...kb.userOrderDetailKb(order, lang),
+    });
+  });
+
+  // 取消待付款订单
+  bot.action(/^cancel:(\d+)$/, async (ctx) => {
+    const lang = getLang(ctx, db);
+    const order = db.getOrder(Number(ctx.match[1]));
+    await ctx.answerCbQuery();
+    if (!order || order.user_id !== ctx.from.id) return;
+    if (order.status !== 'pending_payment') {
+      await ctx.answerCbQuery(t(lang, 'orderNotPending', { id: order.id }), {
+        show_alert: true,
+      });
+      return;
+    }
+    db.updateOrderStatus(order.id, 'cancelled');
+    await ctx.reply(t(lang, 'orderCancelled', { id: order.id }));
+    const orders = db.listOrdersByUser(ctx.from.id, 10);
+    const lines = orders.map(
+      (o) =>
+        `#${o.id} ${o.product_name} — ${fmtPrice(o.total)} — ${statusLabel(lang, o.status)}`
+    );
+    await safeEdit(
+      ctx,
+      `${t(lang, 'yourOrders')}\n\n${lines.join('\n')}`,
+      kb.userOrdersKb(orders, lang)
+    );
   });
 
   // ---------- 钱包 ----------
