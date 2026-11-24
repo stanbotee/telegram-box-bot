@@ -40,6 +40,14 @@ async function main() {
     console.warn('获取 bot 用户名失败（邀请链接将用占位符）:', e.message);
   }
   bot.use(session());
+  // 保证每个更新都有用户行：钱包 / API / 设置等回调处理器直接读
+  // db.getUser(...)，没行会抛空指针；这里统一建行（新用户推荐绑定仍由 /start 处理）
+  bot.use(async (ctx, next) => {
+    if (ctx.from) {
+      db.upsertUser(ctx.from.id, ctx.from.username, ctx.from.first_name);
+    }
+    await next();
+  });
   const deps = { db, config, bot };
 
   registerUserHandlers(bot, deps);
