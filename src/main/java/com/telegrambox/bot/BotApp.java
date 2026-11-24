@@ -72,18 +72,39 @@ public class BotApp {
         }
         Server server = buildServer(config, db, bot);
         server.start();
-        try {
-            SetWebhook setWebhook = new SetWebhook();
-            setWebhook.setUrl(config.webhookUrl + config.webhookPath);
-            bot.execute(setWebhook);
-        } catch (Exception e) {
-            System.err.println("设置 Telegram webhook 失败（" + config.webhookUrl + config.webhookPath
-                    + "），请检查 BOT_TOKEN 与 WEBHOOK_URL 是否正确：" + e.getMessage());
-            System.exit(1);
-        }
+        // 注册 webhook：失败只告警并后台重试，不退出进程。
+        // 否则 Telegram 短暂不可达（或 token 未生效）会导致服务反复崩溃重启。
+        Thread webhookThread = new Thread(() -> registerWebhookWithRetry(bot, config), "webhook-register");
+        webhookThread.setDaemon(true);
+        webhookThread.start();
         System.out.println("Bot 已启动（webhook），监听端口 " + config.port
                 + "，webhook=" + config.webhookUrl + config.webhookPath);
         server.join();
+    }
+
+    /** 注册 webhook，失败重试 5 次（退避 10s/20s/30s/40s），最终失败也不退出进程。 */
+    private static void registerWebhookWithRetry(BotHandler bot, AppConfig config) {
+        String url = config.webhookUrl + config.webhookPath;
+        for (int attempt = 1; attempt <= 5; attempt++) {
+            try {
+                SetWebhook setWebhook = new SetWebhook();
+                setWebhook.setUrl(url);
+                bot.execute(setWebhook);
+                System.out.println("Telegram webhook 已注册：" + url);
+                return;
+            } catch (Exception e) {
+                System.err.println("设置 Telegram webhook 失败（第 " + attempt + " 次，" + url + ")：" + e.getMessage());
+                if (attempt < 5) {
+                    try {
+                        Thread.sleep(10_000L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+            }
+        }
+        System.err.println("Telegram webhook 注册多次失败，服务继续运行；收到 Telegram 更新前请检查 BOT_TOKEN 与 WEBHOOK_URL 是否正确。");
     }
 
     static Server buildServer(AppConfig config, StoreDb db, BotHandler bot) {
